@@ -3,6 +3,7 @@ package fit.network.korobova;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.MulticastSocket;
+import java.net.SocketException;
 import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.Timer;
@@ -13,6 +14,7 @@ public class Reciever implements Runnable {
     DatagramPacket input = new DatagramPacket(buf, buf.length);
     private HashMap<String, Long> connectors;
     long timer;
+    private int countConnectors = 0;
 
     Reciever(MulticastSocket socket, HashMap<String, Long> connectors ){
         this.socket = socket;
@@ -21,22 +23,27 @@ public class Reciever implements Runnable {
 
     @Override
     public void run() {
-        while (true){
-            try {
+        try {
+            socket.setSoTimeout(3000);
+            while (true) {
                 socket.receive(input);
-                String key = input.getAddress().toString() +" "+ input.getPort();
+                String key = input.getAddress().toString() + " " + input.getPort();
                 if (!connectors.containsKey(key)) {
                     timer = System.currentTimeMillis();
                     connectors.put(key, timer);
-                    printer();
                 }
                 checkConnectors();
-            } catch (IOException e) {
-                e.printStackTrace();
+                printer();
             }
+        } catch (SocketException e) {
+            e.printStackTrace();
+            checkConnectors();
+            printer();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
-    
+
     private void checkConnectors(){
         for (HashMap.Entry<String, Long> elem:connectors.entrySet()) {
             if (timer - (elem.getValue()) > 3000){
@@ -54,11 +61,10 @@ public class Reciever implements Runnable {
     }
 
     public void printer() {
-        int count = 0;
         int newCount = getCountConnectors();
-        if (count != newCount) {
+        if (countConnectors != newCount) {
             System.out.println(getConnectors().keySet());
-            count = newCount;
+            countConnectors = newCount;
         }
     }
 
