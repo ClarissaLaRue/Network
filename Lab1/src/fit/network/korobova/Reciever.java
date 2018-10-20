@@ -6,6 +6,8 @@ import java.net.MulticastSocket;
 import java.net.SocketException;
 import java.time.LocalTime;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Timer;
 
 public class Reciever implements Runnable {
@@ -28,15 +30,18 @@ public class Reciever implements Runnable {
             while (true) {
                 socket.receive(input);
                 String key = input.getAddress().toString() + " " + input.getPort();
+                timer = System.currentTimeMillis();
                 if (!connectors.containsKey(key)) {
-                    timer = System.currentTimeMillis();
+                    connectors.put(key, timer);
+                    printer();
+                }else {
                     connectors.put(key, timer);
                 }
+                countConnectors = getCountConnectors();
                 checkConnectors();
                 printer();
             }
         } catch (SocketException e) {
-            e.printStackTrace();
             checkConnectors();
             printer();
         } catch (IOException e) {
@@ -45,8 +50,9 @@ public class Reciever implements Runnable {
     }
 
     private void checkConnectors(){
-        for (HashMap.Entry<String, Long> elem:connectors.entrySet()) {
-            if (timer - (elem.getValue()) > 3000){
+        for (Iterator<Map.Entry<String, Long>> iterator = connectors.entrySet().iterator(); iterator.hasNext(); ) {
+            HashMap.Entry<String, Long> elem = iterator.next();
+            if (timer - (elem.getValue()) > 3000) {
                 connectors.remove(elem.getKey());
             }
         }
