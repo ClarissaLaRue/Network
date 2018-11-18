@@ -3,7 +3,7 @@ import java.net.*;
 import java.util.*;
 
 public class Sender extends Thread {
-    private static LinkedList<Message> messageSend = new LinkedList<>();
+    private static List<Message> messageSend = Collections.synchronizedList(new LinkedList<Message>());
     Reciever reciever;
 
     public Sender (boolean isRoot) throws SocketException {
@@ -19,14 +19,15 @@ public class Sender extends Thread {
     public void addMessage(String data, int code){
         synchronized (Node.o){
             messageSend.add(new Message(data, code, 0,
-                    new InetSocketAddress(Node.port), UUID.randomUUID()));
+                    new InetSocketAddress(Node.name, Node.port), UUID.randomUUID()));
+
         }
     }
 
     public void addMessage(String data, int code, InetSocketAddress reciver){
         synchronized (Node.o){
             messageSend.add(new Message(data, code, 0,
-                    new InetSocketAddress(Node.port), reciver, UUID.randomUUID()));
+                    new InetSocketAddress(Node. name, Node.port), reciver, UUID.randomUUID()));
         }
     }
 
@@ -40,7 +41,7 @@ public class Sender extends Thread {
     public void checkRecvMessage(){
         Iterator<Message> iterator = messageSend.iterator();
         while (iterator.hasNext()){//delet message if have answer, make answer message
-            Message mes = iterator.next();
+            Message mes = (Message) iterator.next();
             if (reciever.isAnswer(mes)){
                 synchronized (Node.o){
                     iterator.remove();
@@ -56,13 +57,17 @@ public class Sender extends Thread {
     }
 
     private void sendMessage(Message mes) throws SocketException {
+        if (Node.connectors.isEmpty()){
+            System.out.println("-no connectors-");
+            return;
+        }
         DatagramSocket socket = new DatagramSocket();
         String packetMessage = mes.getCode() + ":" + mes.getGuid() + ":" + mes.getSender().getPort() + ":" + mes.getData();
         byte[] buf = packetMessage.getBytes();
         DatagramPacket pack = null;
         if (mes.getReceiver() == null){//if dont have receviver send to all connectors
             for (InetSocketAddress addresses: Node.connectors) {
-                pack = new DatagramPacket(buf, 0, buf.length, addresses);
+                pack = new DatagramPacket(buf, 0, buf.length, addresses); // ???
             }
         }else {
             if (Node.connectors.contains(mes.getReceiver())){
@@ -89,35 +94,47 @@ public class Sender extends Thread {
 
     @Override
     public void run() {
+        Iterator<Message> iterator = null;
         while (true) {
-            Iterator<Message> iterator = messageSend.iterator();
-            while (iterator.hasNext()){
-                Message mes = iterator.next();
-                if (mes.getCountOfSend() == Message.STOPSEND){//if we dont have answer 3 times delet mes and conector
-                    synchronized (Node.o){
-                        deleteConnector(mes.getSender());
-                        iterator.remove();
+            //if (queue.fetch()) process;
+            //новый список и не Send а копируем сюда
+            synchronized (messageSend) {
+                iterator = messageSend.iterator();
+                while (iterator.hasNext()){
+                    Message mes = iterator.next();
+                    if (mes.getCountOfSend() == Message.STOPSEND){//if we dont have answer 3 times delet mes and conector
+                        synchronized (Node.o){
+                            deleteConnector(mes.getSender());
+                            iterator.remove();
+                        }
+                        continue;
                     }
-                    continue;
+                    if ((mes.getCode() == Message.USUAL) || (mes.getCode() == Message.NEWCHILD)){ //Send message
+                        try {
+                            sendMessage(mes);
+                        } catch (SocketException e) {
+                            e.printStackTrace();//что то нормальное сделать
+                        }
+                        mes.addSend();
+                    }
+                    if (mes.getCode() == Message.ANSWER){ //message is answer
+                        try {
+                            sendMessage(mes);
+                        } catch (SocketException e) {
+                            e.printStackTrace();
+                        }
+                        synchronized (Node.o){
+                            iterator.remove();
+                        }
+                    }
                 }
-                if ((mes.getCode() == Message.USUAL) || (mes.getCode() == Message.NEWCHILD)){ //Send message
-                    try {
-                        sendMessage(mes);
-                    } catch (SocketException e) {
-                        e.printStackTrace();
-                    }
-                    mes.addSend();
-                }
-                if (mes.getCode() == Message.ANSWER){ //message is answer
-                    try {
-                        sendMessage(mes);
-                    } catch (SocketException e) {
-                        e.printStackTrace();
-                    }
-                    iterator.remove();
+                checkRecvMessage();//тут может что-то сломаться
+                Scanner scanner = new Scanner(System.in); //вынести в другой поток и проверить синхронизацию
+                String data = scanner.nextLine();
+                if (data != null) {
+                    addMessage(data, Message.USUAL);
                 }
             }
-            checkRecvMessage();
         }
     }
 }

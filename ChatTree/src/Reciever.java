@@ -59,10 +59,14 @@ public class Reciever extends Thread {
     private void handlingMessage(Message message) {
         int code = message.getCode();
         if (code == Message.NEWCHILD){
+            System.out.print("-New connector: ");
+            System.out.print(message.getSender());
+            System.out.println("-");
             Node.connectors.add(message.getSender());
             synchronized (Node.o){
                 messagesRecv.add(message);
             }
+            return;
         }
         if (code == Message.USUAL){
             if(!containsMessage(message)) { //print if dont have same message
@@ -77,13 +81,14 @@ public class Reciever extends Thread {
                 messagesRecv.add(message);
             }
         }
+        System.out.println(message.getData());
     }
 
     @Override
     public void run() {
         try{
             byte[] buf = new byte[1024];
-            //DatagramSocket socket = new DatagramSocket(new InetSocketAddress(Node.port));
+            DatagramSocket socket = new DatagramSocket(new InetSocketAddress(Node.name, Node.port));
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
             Message message;
             Random rnd = new Random(System.currentTimeMillis());

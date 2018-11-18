@@ -21,7 +21,8 @@ public class Main {
                 perentAdress= InetAddress.getByName(args[4]);
                 isRoot = false;
             }
-            Node MyNode = new Node(isRoot, loss, port, perentPort, perentAdress);
+            Node MyNode = new Node(name, isRoot, loss, port, perentPort, perentAdress);
+            MyNode.start();
         }catch (NumberFormatException | UnknownHostException e){
             System.out.println("Incorrect arguments");
             return;

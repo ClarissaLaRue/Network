@@ -10,14 +10,16 @@ public class Node {
     static boolean isRoot;
     static int loss;
     static int port;
+    static String name;
     static InetSocketAddress perent;
-    static ArrayList<InetSocketAddress> connectors;
+    static ArrayList<InetSocketAddress> connectors = new ArrayList<>();;
     Sender sender;
 
-    public Node(boolean isRoot, int loss, int port ,int perentPort, InetAddress perentAdress) throws SocketException {
+    public Node(String name, boolean isRoot, int loss, int port ,int perentPort, InetAddress perentAdress) throws SocketException {
         this.isRoot = isRoot;
         this.loss = loss;
         this.port = port;
+        this.name = name;
         if (!isRoot){
             perent = new InetSocketAddress( perentAdress, perentPort);
             connectors.add(perent);
@@ -30,7 +32,8 @@ public class Node {
     public void start(){
         Scanner scanner = new Scanner(System.in);
         while (true){
-            sender.addMessage(scanner.nextLine(), Message.USUAL);
+           //String data = scanner.nextLine();
+            //sender.addMessage(data, Message.USUAL);
         }
     }
 }
