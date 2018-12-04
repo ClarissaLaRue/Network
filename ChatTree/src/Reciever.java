@@ -9,6 +9,7 @@ import java.util.Random;
 import java.util.UUID;
 
 public class Reciever extends Thread {
+    final static Object object = new Object();
     private InetSocketAddress address;
     private DatagramSocket socket;
     private int loss;
@@ -56,32 +57,51 @@ public class Reciever extends Thread {
         return false;
     }
 
-    private void handlingMessage(Message message) {
+    private void handlingMessage(Message message) throws SocketException {
         int code = message.getCode();
         if (code == Message.NEWCHILD){
-            System.out.print("-New connector: ");
-            System.out.print(message.getSender());
-            System.out.println("-");
+            if(!containsMessage(message)) {
+                System.out.print("-New connector: ");
+                System.out.print(message.getSender());
+                System.out.println("-");
+            }
             Node.connectors.add(message.getSender());
-            synchronized (Node.o){
+            synchronized (object){
                 messagesRecv.add(message);
             }
+            sendAnswer(message);
             return;
+
         }
         if (code == Message.USUAL){
             if(!containsMessage(message)) { //print if dont have same message
                 System.out.println(message.getData());
-                synchronized (Node.o){
+                synchronized (object){
                     messagesRecv.add(message);
                 }
             }
+            sendAnswer(message);
         }
-        if (code == Message.ANSWER){ //
-            synchronized (Node.o){
+        if (code == Message.ANSWER){
+            synchronized (object){
                 messagesRecv.add(message);
             }
         }
-        System.out.println(message.getData());
+    }
+
+    private void sendAnswer(Message message) throws SocketException {
+        Message answer = new Message(message.getData(), Message.ANSWER, 0, new InetSocketAddress(Node.name, Node.port), message.getSender(), message.getGuid());
+        DatagramSocket socket = new DatagramSocket();
+        String packetMessage = answer.getCode() + ":" + answer.getGuid() + ":" + answer.getSender().getPort() + ":" + answer.getData();
+        byte[] buf = packetMessage.getBytes();
+        if(answer.getReceiver() != null){
+            DatagramPacket pack = new DatagramPacket(buf, 0, buf.length, answer.getReceiver());
+            try {
+                socket.send(pack);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override

@@ -38,24 +38,6 @@ public class Sender extends Thread {
         }
     }
 
-    public void checkRecvMessage(){
-        Iterator<Message> iterator = messageSend.iterator();
-        while (iterator.hasNext()){//delet message if have answer, make answer message
-            Message mes = (Message) iterator.next();
-            if (reciever.isAnswer(mes)){
-                synchronized (Node.o){
-                    iterator.remove();
-                }
-            }
-        }
-        LinkedList<Message> mes = reciever.getUsualMessage(); //make answer for usual of newchild message
-        if (mes != null){
-            for (Message message: mes) {
-                makeAnswer(message);
-            }
-        }
-    }
-
     private void sendMessage(Message mes) throws SocketException {
         if (Node.connectors.isEmpty()){
             System.out.println("-no connectors-");
@@ -67,19 +49,24 @@ public class Sender extends Thread {
         DatagramPacket pack = null;
         if (mes.getReceiver() == null){//if dont have receviver send to all connectors
             for (InetSocketAddress addresses: Node.connectors) {
-                pack = new DatagramPacket(buf, 0, buf.length, addresses); // ???
+                pack = new DatagramPacket(buf, 0, buf.length, addresses);
+                try {
+                    socket.send(pack);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }else {
             if (Node.connectors.contains(mes.getReceiver())){
                 pack = new DatagramPacket(buf, 0, buf.length, mes.getReceiver());
+                try {
+                    socket.send(pack);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }else {
                 return;
             }
-        }
-        try {
-            socket.send(pack);
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
@@ -96,8 +83,6 @@ public class Sender extends Thread {
     public void run() {
         Iterator<Message> iterator = null;
         while (true) {
-            //if (queue.fetch()) process;
-            //новый список и не Send а копируем сюда
             synchronized (messageSend) {
                 iterator = messageSend.iterator();
                 while (iterator.hasNext()){
@@ -113,7 +98,7 @@ public class Sender extends Thread {
                         try {
                             sendMessage(mes);
                         } catch (SocketException e) {
-                            e.printStackTrace();//что то нормальное сделать
+                            System.out.println("Cant send message, please try again");
                         }
                         mes.addSend();
                     }
@@ -127,12 +112,6 @@ public class Sender extends Thread {
                             iterator.remove();
                         }
                     }
-                }
-                checkRecvMessage();//тут может что-то сломаться
-                Scanner scanner = new Scanner(System.in); //вынести в другой поток и проверить синхронизацию
-                String data = scanner.nextLine();
-                if (data != null) {
-                    addMessage(data, Message.USUAL);
                 }
             }
         }

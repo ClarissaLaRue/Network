@@ -32,8 +32,10 @@ public class Node {
     public void start(){
         Scanner scanner = new Scanner(System.in);
         while (true){
-           //String data = scanner.nextLine();
-            //sender.addMessage(data, Message.USUAL);
+            String data = scanner.nextLine();
+            if (data != null) {
+                sender.addMessage(data, Message.USUAL);
+            }
         }
     }
 }
