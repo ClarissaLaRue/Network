@@ -100,7 +100,7 @@ public class Sender extends Thread {
                         } catch (SocketException e) {
                             System.out.println("Cant send message, please try again");
                         }
-                        mes.addSend();
+                        mes.addSend(); //не хорошо отравлять в синхронайз, мб копировать в другой список и из него уже отправлять
                     }
                     if (mes.getCode() == Message.ANSWER){ //message is answer
                         try {
