@@ -24,4 +24,8 @@ public class Message {
     public long getSenderID() {
         return senderID;
     }
+
+    public long getSenderId() {
+        return senderID;
+    }
 }

@@ -43,9 +43,7 @@ public class Request {
         return headers;
     }
 
-    public byte[] getBody() {
-        return body;
-    }
+    public String getBody() { return String.valueOf(body); }
 
     public void setMethod(String method) {
         this.method = method;
@@ -72,5 +70,14 @@ public class Request {
 
     public void setBody(InputStream in) throws IOException {
         body = in.readAllBytes();
+    }
+
+    public String getToken(){
+        String auth = headers.get("Authorization");
+        if (auth != null){
+            return auth.replaceFirst("Token ", "");
+        } else {
+            return null;
+        }
     }
 }

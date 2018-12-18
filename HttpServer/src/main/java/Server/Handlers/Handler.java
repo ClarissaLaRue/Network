@@ -3,5 +3,5 @@ package Server.Handlers;
 import Server.*;
 
 public interface Handler {
-    Respones getResponse(Request message);
+    Respones getResponse(Request message) throws ServerException;
 }

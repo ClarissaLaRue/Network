@@ -23,6 +23,17 @@ public class User {
         token = bytes.toString();
     }
 
+    public User(String name, boolean isOnline){
+        lastID++;
+        this.id = lastID;
+        this.name = name;
+        this.isOnline = isOnline;
+        SecureRandom random = new SecureRandom();
+        byte bytes[] = new byte[20];
+        random.nextBytes(bytes);
+        token = bytes.toString();
+    }
+
     public long getId() {
         return id;
     }
@@ -42,5 +53,9 @@ public class User {
     public InetSocketAddress getAddress() {
         return address;
     }
+
+    public void setOnline() { isOnline = true; }
+
+    public void setOffline() { isOnline = false; }
 }
 

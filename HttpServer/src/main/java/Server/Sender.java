@@ -1,24 +1,22 @@
 package Server;
 
-import Server.Matchers.*;
 import Server.Handlers.*;
-import Server.Handlers.Handler;
+import Server.Matchers.IntMatcher;
+import Server.Matchers.Matcher;
+import Server.Matchers.StringMatcher;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
+import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
-public class Server {
-    private ArrayList<User> users;
+public class Sender implements Runnable{
+    private BufferedInputStream in;
+    private BufferedWriter outputStream;
+    private final ArrayList<User> users;
     private ArrayList<Message> messages;
-    private ServerSocket socket;
     private HandlersTree handlersTree;
+    private Request request;
 
     public static final String GET = "GET";
     public static final String POST = "POST";
@@ -29,35 +27,44 @@ public class Server {
     public static final String COUNT = "count=";
     public static final String OFFSET = "offset=";
 
-    public Server(String host, int port) throws IOException {
-        messages = new ArrayList<>();
-        users = new ArrayList<>();
-        socket = new ServerSocket();
-        socket.bind(new InetSocketAddress(host, port));
+    public Sender(ArrayList<User> users, ArrayList<Message> messages, Socket socket) throws IOException {
+        this.users = users;
+        this.messages = messages;
+        handlersTree = new HandlersTree();
+        fillHandlersTree();
+        in = new BufferedInputStream(socket.getInputStream());
+        outputStream = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
         handlersTree = new HandlersTree();
         fillHandlersTree();
     }
 
-
-    public void start() {
-        ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(15);
-        ThreadPoolExecutor threadPool = new ThreadPoolExecutor(5, 5, 0, TimeUnit.SECONDS, queue);
-        while (true){
-            try {
-                Socket s = socket.accept();
-                Request request = new Request();
-                Handler handler;
-                try {
-                    request = makeRequest(s.getInputStream());
-                    handler = chooseHendler(request);
-                }catch (ServerException e) {
-                    System.out.println(e.getInfo());
-                }
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    @Override
+    public void run() {
+        request = new Request();
+        Handler handler;
+        try {
+            request = makeRequest(in);
+            handler = chooseHendler(request);
+            sendResponse(handler.getResponse(request));
+        } catch (ServerException e) {
+            System.out.println("SERVER ERR");
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+
+    }
+
+    private void sendResponse(Respones response) throws ServerException {
+        try {
+            outputStream.write(response.getTitle() + "\r\n");
+            outputStream.write(response.getHeadersAsString());
+            outputStream.write(response.getBody());
+            outputStream.flush();
+            outputStream.close();
+        } catch (IOException e) {
+            throw new ServerException(500, "Writing response error");
+        }
+
     }
 
     private Server.Request makeRequest(InputStream in) throws ServerException, IOException {
@@ -106,41 +113,38 @@ public class Server {
         ArrayList<Matcher> login = new ArrayList<>();
         login.add(new StringMatcher(POST));
         login.add(new StringMatcher(LOGIN));
-        handlersTree.addBranch(login, new Login());
+        handlersTree.addBranch(login, new Login(users, messages));
 
         ArrayList<Matcher> logout = new ArrayList<>();
         logout.add(new StringMatcher(POST));
         logout.add(new StringMatcher(LOGOUT));
-        handlersTree.addBranch(logout, new Logout());
+        handlersTree.addBranch(logout, new Logout(users, messages));
 
         ArrayList<Matcher> messageGet = new ArrayList<>();
         messageGet.add(new StringMatcher(GET));
         messageGet.add(new StringMatcher(MESSAGE));
-        handlersTree.addBranch(messageGet, new MessageGetter());
+        handlersTree.addBranch(messageGet, new MessageGetter(messages));
 
         ArrayList<Matcher> offsetCountMesGet = new ArrayList<>();
         offsetCountMesGet.add(new StringMatcher(GET));
         offsetCountMesGet.add(new StringMatcher(MESSAGE));
         offsetCountMesGet.add(new StringMatcher(OFFSET));
         offsetCountMesGet.add(new StringMatcher(COUNT));
-        handlersTree.addBranch(offsetCountMesGet, new OffsetCountMessageGetter());
+        handlersTree.addBranch(offsetCountMesGet, new OffsetCountMessageGetter(users, messages));
 
         ArrayList<Matcher> userGet = new ArrayList<>();
         userGet.add(new StringMatcher(GET));
         userGet.add(new StringMatcher(USERS));
-        handlersTree.addBranch(userGet, new UsersGetter());
+        handlersTree.addBranch(userGet, new UsersGetter(users));
 
         ArrayList<Matcher> userIdGet = new ArrayList<>();
         userIdGet.add(new StringMatcher(GET));
         userIdGet.add(new StringMatcher(USERS));
         userIdGet.add(new IntMatcher());
-        handlersTree.addBranch(userIdGet, new UserIdGetter());
+        handlersTree.addBranch(userIdGet, new UserIdGetter(users));
     }
 
     private Handler chooseHendler(Request request) {
         return handlersTree.getHandler(request.getMethod(), request.getPath());
     }
-
-
-
 }
